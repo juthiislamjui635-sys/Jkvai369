@@ -1,0 +1,5 @@
+# Keystore release configuration template (DO NOT commit your actual key.properties with real passwords)
+storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+keyPassword=YOUR_KEY_PASSWORD_HERE
+keyAlias=jklodu_release_key
+storeFile=/path/to/upload-keystore.jks

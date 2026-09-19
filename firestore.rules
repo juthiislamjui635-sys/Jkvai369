@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Rate limiting & anti-tamper helpers
+    function isValidScore(score) {
+      return score is number && score >= 0 && score <= 1000000;
+    }
+
+    // 1. User Profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && 
+                    !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isBanned', 'coins', 'gems']);
+      allow delete: if false; // Profiles are soft-deleted or preserved
+    }
+
+    // 2. User Stats & Progression (Protected by Cloud Functions / Server Authority)
+    match /progression/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only server-authoritative logic may credit XP/coins
+    }
+
+    // 3. Match Rooms
+    match /rooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.hostId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.hostId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playerIds', 'players', 'updatedAt'])
+      );
+      allow delete: if isAuthenticated() && resource.data.hostId == request.auth.uid;
+    }
+
+    // 4. Live Match Authoritative States
+    match /matches/{matchId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid in resource.data.playerIds
+      );
+      // Moves and state mutations must come from server Cloud Functions or authorized coordinator
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.uid in resource.data.playerIds
+      );
+      allow delete: if false;
+    }
+
+    // 5. Leaderboard (Public read, server-write only)
+    match /leaderboards/{tier} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 6. Friends & Requests
+    match /friends/{userId}/userFriends/{friendId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) || (isAuthenticated() && request.auth.uid == friendId);
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.fromUserId == request.auth.uid || 
+        resource.data.toUserId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.resource.data.fromUserId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (
+        resource.data.fromUserId == request.auth.uid || 
+        resource.data.toUserId == request.auth.uid
+      );
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

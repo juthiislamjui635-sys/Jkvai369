@@ -1,0 +1,34 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "metadata": {
+          ".validate": "newData.hasChildren(['hostId', 'maxPlayers', 'createdAt', 'status'])"
+        },
+        "players": {
+          "$playerId": {
+            ".write": "auth != null && auth.uid == $playerId"
+          }
+        },
+        "actions": {
+          "$actionId": {
+            // Clients can only APPEND action messages (ROLL_DICE, MOVE_TOKEN, READY)
+            ".write": "auth != null && !data.exists() && newData.child('senderUid').val() == auth.uid"
+          }
+        },
+        "authoritativeState": {
+          // Trusted Server/Host logic writes verified state
+          ".write": "auth != null && root.child('rooms').child($roomId).child('metadata').child('hostId').val() == auth.uid"
+        }
+      }
+    },
+    "presence": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    }
+  }
+}

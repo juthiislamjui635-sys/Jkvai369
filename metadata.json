@@ -1,0 +1,6 @@
+{
+  "name": "JK LODU",
+  "description": "JK LODU - Professional Modern Multiplayer Ludo Game mobile architecture, engine, and interactive simulator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
